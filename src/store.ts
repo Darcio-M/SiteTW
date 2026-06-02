@@ -11,7 +11,18 @@ export async function loginWithGoogle(): Promise<boolean> {
   const provider = new GoogleAuthProvider();
   try {
     const result = await signInWithPopup(auth, provider);
+    if (!result.user.email) {
+      await signOut(auth);
+      return false;
+    }
+    
     if (result.user.email === 'darciodfx@gmail.com') {
+      return true;
+    } 
+
+    // Check if user is in admins collection
+    const adminDoc = await getDoc(doc(db, 'admins', result.user.email));
+    if (adminDoc.exists()) {
       return true;
     } else {
       await signOut(auth);
@@ -21,6 +32,10 @@ export async function loginWithGoogle(): Promise<boolean> {
     console.error(error);
     return false;
   }
+}
+
+export interface Admin {
+  email: string;
 }
 
 export async function logoutAdmin(): Promise<void> {
@@ -181,6 +196,29 @@ class Store {
 
   async deleteCategory(id: string): Promise<void> {
     const ref = doc(db, 'categories', id);
+    await deleteDoc(ref);
+  }
+
+  // --- Admins ---
+
+  async getAdmins(): Promise<Admin[]> {
+    try {
+      const snap = await getDocs(collection(db, 'admins'));
+      if (snap.empty) return [];
+      return snap.docs.map(doc => doc.data() as Admin);
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  }
+
+  async addAdmin(email: string): Promise<void> {
+    const ref = doc(db, 'admins', email);
+    await setDoc(ref, { email });
+  }
+
+  async deleteAdmin(email: string): Promise<void> {
+    const ref = doc(db, 'admins', email);
     await deleteDoc(ref);
   }
 

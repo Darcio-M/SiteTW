@@ -59,6 +59,7 @@ async function renderDashboard(container: HTMLElement) {
   const products = await store.getProducts();
   const categories = await store.getCategories();
   let orders = await store.getOrders();
+  const admins = await store.getAdmins();
   
   // Sort orders by most recent first
   orders.sort((a, b) => b.createdAt - a.createdAt);
@@ -202,6 +203,45 @@ async function renderDashboard(container: HTMLElement) {
                   </tr>
                 `).join('')}
                 ${orders.length === 0 ? '<tr><td colspan="6" class="py-10 text-center text-gray-400 font-sans">Nenhum pedido registrado.</td></tr>' : ''}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admins Section -->
+      <div class="bg-white rounded-3xl soft-shadow border border-sleek-border overflow-hidden mt-12 mb-12">
+        <div class="border-b border-sleek-border bg-sleek-surface p-6 flex justify-between items-center">
+          <h2 class="text-xl font-serif text-sleek-text">Gerenciar Administradores</h2>
+        </div>
+        
+        <div class="p-6">
+          <form id="addAdminForm" class="flex gap-4 mb-6">
+            <input type="email" id="newAdminEmail" required placeholder="Email do novo administrador" class="flex-1 rounded-xl border border-sleek-border px-4 py-2 font-sans text-sm focus:outline-none focus:ring-1 focus:ring-sleek-accent">
+            <button type="submit" class="bg-sleek-text text-white px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-sleek-accent transition-colors">Adicionar</button>
+          </form>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-gray-200">
+                  <th class="py-3 px-4 text-xs font-semibold text-gray-600 uppercase font-sans">Email</th>
+                  <th class="py-3 px-4 text-xs font-semibold text-gray-600 uppercase font-sans text-right">Ação</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="border-b border-gray-100 font-sans text-sm">
+                  <td class="py-3 px-4 text-sleek-text font-medium">darciodfx@gmail.com (Dono)</td>
+                  <td class="py-3 px-4 text-right"></td>
+                </tr>
+                ${admins.map(adm => `
+                  <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors font-sans text-sm">
+                    <td class="py-3 px-4 text-sleek-text">${adm.email}</td>
+                    <td class="py-3 px-4 text-right align-middle">
+                       <button class="text-red-500 hover:text-red-700 transition-colors remove-admin-btn" data-email="${adm.email}"><i data-lucide="trash-2" class="w-4 h-4 inline"></i></button>
+                    </td>
+                  </tr>
+                `).join('')}
               </tbody>
             </table>
           </div>
@@ -479,6 +519,39 @@ async function renderDashboard(container: HTMLElement) {
         const phone = cleanPhone.length <= 11 ? '55' + cleanPhone : cleanPhone;
         const msg = `Olá! O seu pedido *${o.productName}* (${o.quantity} un.) foi processado.\n\nO valor do seu pacote ficou em R$ ${o.totalValue.toFixed(2).replace('.', ',')}.\nO valor do frete para o CEP ${o.cep} é de R$ ${o.shippingCost?.toFixed(2).replace('.', ',')}.\n\nTotal do pedido: R$ ${(o.totalValue + (o.shippingCost || 0)).toFixed(2).replace('.', ',')}\n\nPodemos fechar o pedido?`;
         window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`, '_blank');
+      }
+    });
+  });
+
+  // Handle Admins
+  document.getElementById('addAdminForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const emailInput = document.getElementById('newAdminEmail') as HTMLInputElement;
+    const email = emailInput.value.trim().toLowerCase();
+    
+    if (email && email !== 'darciodfx@gmail.com') {
+      try {
+        await store.addAdmin(email);
+        emailInput.value = '';
+        renderDashboard(container);
+      } catch (error) {
+        console.error(error);
+        alert('Erro ao adicionar administrador.');
+      }
+    }
+  });
+
+  document.querySelectorAll('.remove-admin-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const email = (e.currentTarget as HTMLElement).dataset.email!;
+      if (confirm(`Tem certeza que deseja remover ${email} dos administradores?`)) {
+        try {
+          await store.deleteAdmin(email);
+          renderDashboard(container);
+        } catch (error) {
+          console.error(error);
+          alert('Erro ao remover administrador.');
+        }
       }
     });
   });
