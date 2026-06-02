@@ -1,37 +1,50 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, doc, getDocs, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
+import { createClient } from '@supabase/supabase-js';
 
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-export async function loginWithGoogle(): Promise<boolean> {
-  const provider = new GoogleAuthProvider();
-  try {
-    const result = await signInWithPopup(auth, provider);
-    if (!result.user.email) {
-      await signOut(auth);
-      return false;
-    }
-    
-    if (result.user.email === 'darciodfx@gmail.com') {
-      return true;
-    } 
+export const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
-    // Check if user is in admins collection
-    const adminDoc = await getDoc(doc(db, 'admins', result.user.email));
-    if (adminDoc.exists()) {
-      return true;
-    } else {
-      await signOut(auth);
-      return false; // Not admin
-    }
-  } catch (error) {
-    console.error(error);
-    return false;
+export async function loginWithGoogle(): Promise<{ success: boolean; error?: string }> {
+  if (!supabase) {
+    return { success: false, error: 'Supabase não está configurado. Adicione VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.' };
   }
+
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+
+    if (error) throw error;
+    
+    // Note: OAuth sign-in is typically a redirect, so the session is established after return.
+    // However, if the user is already signed in (we should check session).
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error(error);
+    return { success: false, error: error.message || 'Erro ao realizar login.' };
+  }
+}
+
+export async function checkAdminSession(): Promise<boolean> {
+  if (!supabase) return false;
+  
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user?.email) return false;
+  
+  if (session.user.email === 'darciodfx@gmail.com') return true;
+  
+  const { data, error } = await supabase
+    .from('admins')
+    .select('email')
+    .eq('email', session.user.email)
+    .maybeSingle();
+    
+  return !!data;
 }
 
 export interface Admin {
@@ -39,7 +52,8 @@ export interface Admin {
 }
 
 export async function logoutAdmin(): Promise<void> {
-  await signOut(auth);
+  if (!supabase) return;
+  await supabase.auth.signOut();
 }
 
 export interface Product {
@@ -51,8 +65,8 @@ export interface Product {
   wholesalePrice: number;
   wholesaleMinQuantity: number;
   category: string;
-  weight: number; // Peso em gramas ou kg (ex: 0.5 para 500g)
-  imageUrl: string; // Keep for backward compatibility/main image
+  weight: number; 
+  imageUrl: string; 
   imageUrls: string[];
   featured: boolean;
   bestSeller: boolean;
@@ -139,13 +153,11 @@ export const defaultProducts: Product[] = [
 
 class Store {
   async getProducts(): Promise<Product[]> {
+    if (!supabase) return defaultProducts;
     try {
-      const snap = await getDocs(collection(db, 'products'));
-      if (snap.empty) {
-        // If empty, return default products (you can also just return [])
-        return defaultProducts;
-      }
-      return snap.docs.map(doc => doc.data() as Product);
+      const { data, error } = await supabase.from('products').select('*');
+      if (error) throw error;
+      return (data?.length ? data : defaultProducts) as Product[];
     } catch (e) {
       console.error(e);
       return defaultProducts;
@@ -153,13 +165,11 @@ class Store {
   }
 
   async getProduct(id: string): Promise<Product | null> {
+    if (!supabase) return defaultProducts.find(p => p.id === id) || null;
     try {
-      const ref = doc(db, 'products', id);
-      const snap = await getDoc(ref);
-      if (snap.exists()) {
-        return snap.data() as Product;
-      }
-      return null;
+      const { data, error } = await supabase.from('products').select('*').eq('id', id).maybeSingle();
+      if (error) throw error;
+      return (data || null) as Product | null;
     } catch (e) {
       console.error(e);
       return null;
@@ -167,22 +177,23 @@ class Store {
   }
 
   async saveProduct(product: Product): Promise<void> {
-    const ref = doc(db, 'products', product.id);
-    await setDoc(ref, product);
+    if (!supabase) return;
+    const { error } = await supabase.from('products').upsert(product);
+    if (error) throw error;
   }
 
   async deleteProduct(id: string): Promise<void> {
-    const ref = doc(db, 'products', id);
-    await deleteDoc(ref);
+    if (!supabase) return;
+    const { error } = await supabase.from('products').delete().eq('id', id);
+    if (error) throw error;
   }
 
   async getCategories(): Promise<Category[]> {
+    if (!supabase) return defaultCategories;
     try {
-      const snap = await getDocs(collection(db, 'categories'));
-      if (snap.empty) {
-        return defaultCategories; // Return defaults if db is empty
-      }
-      return snap.docs.map(doc => doc.data() as Category);
+      const { data, error } = await supabase.from('categories').select('*');
+      if (error) throw error;
+      return (data?.length ? data : defaultCategories) as Category[];
     } catch (e) {
       console.error(e);
       return defaultCategories; 
@@ -190,22 +201,25 @@ class Store {
   }
 
   async saveCategory(category: Category): Promise<void> {
-    const ref = doc(db, 'categories', category.id);
-    await setDoc(ref, category);
+    if (!supabase) return;
+    const { error } = await supabase.from('categories').upsert(category);
+    if (error) throw error;
   }
 
   async deleteCategory(id: string): Promise<void> {
-    const ref = doc(db, 'categories', id);
-    await deleteDoc(ref);
+    if (!supabase) return;
+    const { error } = await supabase.from('categories').delete().eq('id', id);
+    if (error) throw error;
   }
 
   // --- Admins ---
 
   async getAdmins(): Promise<Admin[]> {
+    if (!supabase) return [];
     try {
-      const snap = await getDocs(collection(db, 'admins'));
-      if (snap.empty) return [];
-      return snap.docs.map(doc => doc.data() as Admin);
+      const { data, error } = await supabase.from('admins').select('*');
+      if (error) throw error;
+      return (data || []) as Admin[];
     } catch (e) {
       console.error(e);
       return [];
@@ -213,29 +227,31 @@ class Store {
   }
 
   async addAdmin(email: string): Promise<void> {
-    const ref = doc(db, 'admins', email);
-    await setDoc(ref, { email });
+    if (!supabase) return;
+    const { error } = await supabase.from('admins').upsert({ email });
+    if (error) throw error;
   }
 
   async deleteAdmin(email: string): Promise<void> {
-    const ref = doc(db, 'admins', email);
-    await deleteDoc(ref);
+    if (!supabase) return;
+    const { error } = await supabase.from('admins').delete().eq('email', email);
+    if (error) throw error;
   }
 
   // --- Orders ---
   
   async createOrder(order: Order): Promise<void> {
-    const ref = doc(db, 'orders', order.id);
-    await setDoc(ref, order);
+    if (!supabase) return;
+    const { error } = await supabase.from('orders').upsert(order);
+    if (error) throw error;
   }
 
   async getOrders(): Promise<Order[]> {
+    if (!supabase) return [];
     try {
-      const snap = await getDocs(collection(db, 'orders'));
-      if (snap.empty) {
-        return [];
-      }
-      return snap.docs.map(doc => doc.data() as Order);
+      const { data, error } = await supabase.from('orders').select('*');
+      if (error) throw error;
+      return (data || []) as Order[];
     } catch (e) {
       console.error(e);
       return [];
@@ -243,8 +259,9 @@ class Store {
   }
 
   async updateOrder(order: Order): Promise<void> {
-    const ref = doc(db, 'orders', order.id);
-    await setDoc(ref, order);
+    if (!supabase) return;
+    const { error } = await supabase.from('orders').upsert(order);
+    if (error) throw error;
   }
 }
 

@@ -61,7 +61,8 @@ export function initApp() {
           <div>
             <h4 class="text-[10px] uppercase tracking-[0.2em] font-bold text-sleek-text mb-6">Contato</h4>
             <ul class="space-y-4 text-sm font-light text-sleek-text-light">
-              <li>(88) 9254-4294</li>
+              <li>contato@twacrilicos.com.br</li>
+              <li>(11) 99999-9999</li>
               <li>Atendimento Seg-Sex, 9h às 18h</li>
             </ul>
           </div>

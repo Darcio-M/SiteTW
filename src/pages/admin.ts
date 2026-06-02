@@ -1,12 +1,19 @@
-import { store, Product, Category, loginWithGoogle, logoutAdmin } from '../store';
+import { store, Product, Category, loginWithGoogle, logoutAdmin, checkAdminSession } from '../store';
 
 export async function renderAdmin(container: HTMLElement) {
-  // Simple auth state for demo
-  const isLoggedIn = sessionStorage.getItem('admin_logged') === 'true';
+  // Check real session via Supabase
+  const isRealSession = await checkAdminSession();
+  const isLocalLogged = sessionStorage.getItem('admin_logged') === 'true';
+  const isLoggedIn = isRealSession || isLocalLogged;
 
   if (!isLoggedIn) {
+    // If not logged in, show login page
     renderLogin(container);
     return;
+  }
+  
+  if (isRealSession && !isLocalLogged) {
+    sessionStorage.setItem('admin_logged', 'true');
   }
 
   renderDashboard(container);
@@ -44,13 +51,16 @@ function renderLogin(container: HTMLElement) {
     const errorEl = document.getElementById('loginError');
     if (errorEl) errorEl.classList.add('hidden');
     
-    const success = await loginWithGoogle();
+    const result = await loginWithGoogle();
     
-    if (success) {
+    if (result.success) {
       sessionStorage.setItem('admin_logged', 'true');
       renderAdmin(document.getElementById('app-content')!);
     } else {
-      if (errorEl) errorEl.classList.remove('hidden');
+      if (errorEl) {
+        errorEl.innerHTML = (result.error || 'Acesso negado: ocorreu um erro inesperado.').replace(/\n/g, '<br/>');
+        errorEl.classList.remove('hidden');
+      }
     }
   });
 }
