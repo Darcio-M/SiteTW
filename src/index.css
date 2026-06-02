@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-sleek-bg: #FFF9FB;
+  --color-sleek-text: #4A3B44;
+  --color-sleek-text-light: #7D6E77;
+  --color-sleek-accent: #C5A059;
+  --color-sleek-surface: #FDF1F5;
+  --color-sleek-border: #F2E1E8;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", ui-serif, Georgia, serif;
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 1s ease-out forwards;
+  }
+  
+  .gold-gradient {
+    background: linear-gradient(135deg, #D4AF37 0%, #F1D279 50%, #C5A059 100%);
+  }
+  
+  .soft-shadow {
+    box-shadow: 0 10px 30px rgba(234, 190, 203, 0.3);
+  }
+  
+  .acrylic-card {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+body {
+  background-color: var(--color-sleek-bg);
+  color: var(--color-sleek-text);
+}

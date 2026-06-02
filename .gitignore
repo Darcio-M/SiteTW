@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Ambiente virtual
+venv/
+.env/
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# VS Code
+.vscode/
+
+# Arquivos temporários
+*.tmp
+*.log
+
+# Dados do sistema
+Thumbs.db
+desktop.ini

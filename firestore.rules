@@ -1,0 +1,101 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (request.auth.token.email == 'darciodfx@gmail.com' || exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['name', 'description', 'price', 'category', 'createdAt']) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
+        data.description is string && data.description.size() <= 5000 &&
+        data.price is number && data.price >= 0 &&
+        (data.minQuantity == null || (data.minQuantity is number && data.minQuantity >= 1)) &&
+        (data.wholesalePrice == null || (data.wholesalePrice is number && data.wholesalePrice >= 0)) &&
+        (data.wholesaleMinQuantity == null || (data.wholesaleMinQuantity is number && data.wholesaleMinQuantity >= 1)) &&
+        data.category is string && data.category.size() <= 100 &&
+        (data.weight == null || data.weight is number) &&
+        (data.imageUrl == null || (data.imageUrl is string && data.imageUrl.size() <= 1000)) &&
+        (data.imageUrls == null || (data.imageUrls is list && data.imageUrls.size() <= 10)) &&
+        (data.featured == null || data.featured is bool) &&
+        (data.bestSeller == null || data.bestSeller is bool) &&
+        data.createdAt is number;
+    }
+
+    function isValidCategory(data) {
+      return data.keys().hasAll(['name']) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100;
+    }
+
+    function isValidAdmin(data) {
+      return data.keys().hasAll(['email']) &&
+        data.email is string && data.email.size() > 0 && data.email.size() <= 150;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['productId', 'productName', 'quantity', 'cep', 'contact', 'totalValue', 'status', 'createdAt']) &&
+        data.productId is string && data.productId.size() > 0 && data.productId.size() <= 128 &&
+        data.productName is string && data.productName.size() > 0 && data.productName.size() <= 200 &&
+        data.quantity is number && data.quantity >= 1 &&
+        data.cep is string && data.cep.size() > 0 && data.cep.size() <= 20 &&
+        data.contact is string && data.contact.size() > 0 && data.contact.size() <= 50 &&
+        (data.totalWeight == null || data.totalWeight is number) &&
+        data.totalValue is number && data.totalValue >= 0 &&
+        data.status in ['PENDING', 'PROCESSING', 'PROCESSED'] &&
+        (data.shippingCost == null || data.shippingCost is number) &&
+        data.createdAt is number;
+    }
+
+    match /products/{productId} {
+      allow read: if isValidId(productId);
+      allow list: if true;
+      allow create: if isAdmin() && isValidId(productId) && isValidProduct(incoming());
+      allow update: if isAdmin() && isValidId(productId) && isValidProduct(incoming()) && incoming().createdAt == existing().createdAt;
+      allow delete: if isAdmin() && isValidId(productId);
+    }
+
+    match /categories/{categoryId} {
+      allow read: if isValidId(categoryId);
+      allow list: if true;
+      allow create: if isAdmin() && isValidId(categoryId) && isValidCategory(incoming());
+      allow update: if isAdmin() && isValidId(categoryId) && isValidCategory(incoming());
+      allow delete: if isAdmin() && isValidId(categoryId);
+    }
+
+    match /admins/{adminId} {
+      allow read: if isAdmin() && isValidId(adminId);
+      allow list: if isAdmin();
+      allow create: if isAdmin() && isValidId(adminId) && isValidAdmin(incoming());
+      allow update: if isAdmin() && isValidId(adminId) && isValidAdmin(incoming());
+      allow delete: if isAdmin() && isValidId(adminId);
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAdmin();
+      allow list: if isAdmin();
+      allow create: if isValidId(orderId) && isValidOrder(incoming());
+      allow update: if isAdmin() && isValidId(orderId) && isValidOrder(incoming()) && incoming().createdAt == existing().createdAt;
+      allow delete: if isAdmin() && isValidId(orderId);
+    }
+  }
+}
