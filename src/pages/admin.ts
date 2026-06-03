@@ -1,20 +1,17 @@
-import { store, Product, Category, loginWithGoogle, logoutAdmin, checkAdminSession } from '../store';
+import { store, Product, Category, loginWithEmail, logoutAdmin, checkAdminSession } from '../store';
 
 export async function renderAdmin(container: HTMLElement) {
   // Check real session via Supabase
-  const isRealSession = await checkAdminSession();
-  const isLocalLogged = sessionStorage.getItem('admin_logged') === 'true';
-  const isLoggedIn = isRealSession || isLocalLogged;
+  const isLoggedIn = await checkAdminSession();
 
   if (!isLoggedIn) {
     // If not logged in, show login page
+    sessionStorage.removeItem('admin_logged');
     renderLogin(container);
     return;
   }
   
-  if (isRealSession && !isLocalLogged) {
-    sessionStorage.setItem('admin_logged', 'true');
-  }
+  sessionStorage.setItem('admin_logged', 'true');
 
   renderDashboard(container);
 }
@@ -34,29 +31,49 @@ function renderLogin(container: HTMLElement) {
             Apenas para administração do site.
           </p>
         </div>
-        <div class="mt-8">
-          <button id="googleLoginBtn" class="group relative flex w-full justify-center rounded-xl border border-transparent gold-gradient py-3 px-4 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-sleek-accent focus:ring-offset-2 transition-opacity">
-            <svg class="w-5 h-5 mr-3" viewBox="0 0 24 24">
-              <path fill="currentColor" d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/>
-            </svg>
-            Entrar com o Google
-          </button>
-          <p id="loginError" class="text-red-500 text-sm font-sans text-center hidden mt-4">Acesso negado: Conta Google não autorizada.</p>
-        </div>
+        <form id="loginForm" class="mt-8 space-y-6">
+          <div class="rounded-md shadow-sm space-y-4">
+            <div>
+              <label for="email-address" class="sr-only">Email</label>
+              <input id="email-address" name="email" type="email" autocomplete="email" required class="appearance-none rounded-xl relative block w-full px-4 py-3 border border-sleek-border placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-sleek-accent focus:border-sleek-accent focus:z-10 sm:text-sm" placeholder="Email">
+            </div>
+            <div>
+              <label for="password" class="sr-only">Senha</label>
+              <input id="password" name="password" type="password" autocomplete="current-password" required class="appearance-none rounded-xl relative block w-full px-4 py-3 border border-sleek-border placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-sleek-accent focus:border-sleek-accent focus:z-10 sm:text-sm" placeholder="Senha">
+            </div>
+          </div>
+
+          <div>
+            <button type="submit" id="loginBtn" class="group relative flex w-full justify-center rounded-xl border border-transparent gold-gradient py-3 px-4 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-sleek-accent focus:ring-offset-2 transition-opacity">
+              Entrar
+            </button>
+          </div>
+          <p id="loginError" class="text-red-500 text-sm font-sans text-center hidden mt-4">Acesso negado.</p>
+        </form>
       </div>
     </div>
   `;
 
-  document.getElementById('googleLoginBtn')?.addEventListener('click', async () => {
+  document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('loginBtn') as HTMLButtonElement;
     const errorEl = document.getElementById('loginError');
     if (errorEl) errorEl.classList.add('hidden');
     
-    const result = await loginWithGoogle();
+    if (btn) btn.disabled = true;
+    if (btn) btn.innerHTML = 'Entrando...';
+    
+    const email = (document.getElementById('email-address') as HTMLInputElement).value;
+    const password = (document.getElementById('password') as HTMLInputElement).value;
+    
+    const result = await loginWithEmail(email, password);
     
     if (result.success) {
       sessionStorage.setItem('admin_logged', 'true');
       renderAdmin(document.getElementById('app-content')!);
     } else {
+      if (btn) btn.disabled = false;
+      if (btn) btn.innerHTML = 'Entrar';
       if (errorEl) {
         errorEl.innerHTML = (result.error || 'Acesso negado: ocorreu um erro inesperado.').replace(/\n/g, '<br/>');
         errorEl.classList.remove('hidden');
@@ -68,11 +85,6 @@ function renderLogin(container: HTMLElement) {
 async function renderDashboard(container: HTMLElement) {
   const products = await store.getProducts();
   const categories = await store.getCategories();
-  let orders = await store.getOrders();
-  const admins = await store.getAdmins();
-  
-  // Sort orders by most recent first
-  orders.sort((a, b) => b.createdAt - a.createdAt);
 
   let html = `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -104,7 +116,7 @@ async function renderDashboard(container: HTMLElement) {
                   <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                     <td class="py-3 px-4"><img src="${p.imageUrl}" class="w-12 h-12 object-cover rounded shadow-sm"></td>
                     <td class="py-3 px-4 font-medium text-gray-900">${p.name}</td>
-                    <td class="py-3 px-4 text-gray-500">R$ ${p.price.toFixed(2)}</td>
+                    <td class="py-3 px-4 text-gray-500">R$ ${(p.price || 0).toFixed(2)}</td>
                     <td class="py-3 px-4">
                       ${p.featured ? '<span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full font-medium">Bela Cura</span>' : ''}
                       ${p.bestSeller ? '<span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium mt-1 inline-block">Best Seller</span>' : ''}
@@ -158,105 +170,7 @@ async function renderDashboard(container: HTMLElement) {
         </div>
       </div>
 
-      <!-- Orders Section -->
-      <div class="bg-white rounded-3xl soft-shadow border border-sleek-border overflow-hidden mt-12 mb-12">
-        <div class="border-b border-sleek-border bg-sleek-surface p-6 flex justify-between items-center">
-          <h2 class="text-xl font-serif text-sleek-text">Gerenciar Pedidos</h2>
-          <button id="exportOrdersBtn" class="group relative flex justify-center rounded-full border border-sleek-border bg-white py-2 px-4 text-xs font-bold uppercase tracking-widest text-sleek-text hover:bg-gray-50 focus:outline-none transition-colors">
-            Exportar XLS/CSV
-          </button>
-        </div>
-        
-        <div class="p-6">
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse min-w-[800px]">
-              <thead>
-                <tr class="border-b border-gray-200">
-                  <th class="py-3 px-4 text-xs font-semibold text-gray-600 uppercase font-sans">ID / Data</th>
-                  <th class="py-3 px-4 text-xs font-semibold text-gray-600 uppercase font-sans">Cliente</th>
-                  <th class="py-3 px-4 text-xs font-semibold text-gray-600 uppercase font-sans">Produto</th>
-                  <th class="py-3 px-4 text-xs font-semibold text-gray-600 uppercase font-sans">Valor/Peso</th>
-                  <th class="py-3 px-4 text-xs font-semibold text-gray-600 uppercase font-sans">Status</th>
-                  <th class="py-3 px-4 text-xs font-semibold text-gray-600 uppercase font-sans text-right">Ação</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${orders.map(o => `
-                  <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors font-sans text-sm">
-                    <td class="py-3 px-4">
-                       <span class="font-medium text-sleek-text block">${o.id}</span>
-                       <span class="text-xs text-gray-500">${new Date(o.createdAt).toLocaleString('pt-BR')}</span>
-                    </td>
-                    <td class="py-3 px-4">
-                       <div class="font-medium text-sleek-text">CEP: ${o.cep}</div>
-                       <div class="text-xs text-gray-500 max-w-[120px] truncate" title="${o.contact}">${o.contact}</div>
-                    </td>
-                    <td class="py-3 px-4">
-                       <div class="font-medium text-sleek-text max-w-[150px] truncate" title="${o.productName}">${o.productName}</div>
-                       <div class="text-xs text-gray-500">${o.quantity} unidades</div>
-                    </td>
-                    <td class="py-3 px-4">
-                       <div class="font-medium text-sleek-text">R$ ${o.totalValue.toFixed(2)}</div>
-                       <div class="text-xs text-gray-500">${o.totalWeight > 0 ? o.totalWeight + 'g' : '-'}</div>
-                       ${o.shippingCost !== undefined ? `<div class="text-xs font-bold text-sleek-accent">Frete: R$ ${o.shippingCost.toFixed(2)}</div>` : ''}
-                    </td>
-                    <td class="py-3 px-4">
-                       ${o.status === 'PENDING' ? '<span class="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded-full font-medium">Aguardando</span>' : ''}
-                       ${o.status === 'PROCESSING' ? '<span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">Processando</span>' : ''}
-                       ${o.status === 'PROCESSED' ? '<span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">Processado</span>' : ''}
-                    </td>
-                    <td class="py-3 px-4 text-right align-middle">
-                       ${o.status === 'PENDING' ? `<button class="text-[10px] font-bold uppercase tracking-wider text-blue-600 border border-blue-600 px-3 py-1.5 rounded-full hover:bg-blue-600 hover:text-white transition-colors process-order-btn block ml-auto" data-id="${o.id}">Iniciar</button>` : ''}
-                       ${o.status === 'PROCESSING' ? `<button class="text-[10px] font-bold uppercase tracking-wider text-green-600 border border-green-600 px-3 py-1.5 rounded-full hover:bg-green-600 hover:text-white transition-colors finish-order-btn block ml-auto" data-id="${o.id}">Finalizar</button>` : ''}
-                       ${o.status === 'PROCESSED' ? `<button class="text-[10px] font-bold uppercase tracking-wider text-white bg-[#25D366] px-3 py-1.5 rounded-full hover:bg-[#1ebe5d] transition-colors contact-client-btn block ml-auto" data-id="${o.id}">Contatar Cliente</button>` : ''}
-                    </td>
-                  </tr>
-                `).join('')}
-                ${orders.length === 0 ? '<tr><td colspan="6" class="py-10 text-center text-gray-400 font-sans">Nenhum pedido registrado.</td></tr>' : ''}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
 
-      <!-- Admins Section -->
-      <div class="bg-white rounded-3xl soft-shadow border border-sleek-border overflow-hidden mt-12 mb-12">
-        <div class="border-b border-sleek-border bg-sleek-surface p-6 flex justify-between items-center">
-          <h2 class="text-xl font-serif text-sleek-text">Gerenciar Administradores</h2>
-        </div>
-        
-        <div class="p-6">
-          <form id="addAdminForm" class="flex gap-4 mb-6">
-            <input type="email" id="newAdminEmail" required placeholder="Email do novo administrador" class="flex-1 rounded-xl border border-sleek-border px-4 py-2 font-sans text-sm focus:outline-none focus:ring-1 focus:ring-sleek-accent">
-            <button type="submit" class="bg-sleek-text text-white px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-sleek-accent transition-colors">Adicionar</button>
-          </form>
-
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-              <thead>
-                <tr class="border-b border-gray-200">
-                  <th class="py-3 px-4 text-xs font-semibold text-gray-600 uppercase font-sans">Email</th>
-                  <th class="py-3 px-4 text-xs font-semibold text-gray-600 uppercase font-sans text-right">Ação</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr class="border-b border-gray-100 font-sans text-sm">
-                  <td class="py-3 px-4 text-sleek-text font-medium">darciodfx@gmail.com (Dono)</td>
-                  <td class="py-3 px-4 text-right"></td>
-                </tr>
-                ${admins.map(adm => `
-                  <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors font-sans text-sm">
-                    <td class="py-3 px-4 text-sleek-text">${adm.email}</td>
-                    <td class="py-3 px-4 text-right align-middle">
-                       <button class="text-red-500 hover:text-red-700 transition-colors remove-admin-btn" data-email="${adm.email}"><i data-lucide="trash-2" class="w-4 h-4 inline"></i></button>
-                    </td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- Product Modal -->
@@ -457,114 +371,7 @@ async function renderDashboard(container: HTMLElement) {
     });
   });
 
-  // Export Orders to CSV
-  document.getElementById('exportOrdersBtn')?.addEventListener('click', () => {
-    if (orders.length === 0) {
-      alert('Não há pedidos para exportar.');
-      return;
-    }
-    const headers = ['ID', 'Data', 'Produto', 'Cliente(Contato)', 'CEP', 'Peso(g)', 'Valor(R$)', 'Frete(R$)', 'Status'];
-    const rows = orders.map(o => {
-      const dataStr = new Date(o.createdAt).toLocaleString('pt-BR');
-      const val = o.totalValue.toFixed(2).replace('.', ',');
-      const frete = o.shippingCost !== undefined ? o.shippingCost.toFixed(2).replace('.', ',') : '0,00';
-      const statusMap: Record<string, string> = { 'PENDING': 'Aguardando', 'PROCESSING': 'Processando', 'PROCESSED': 'Processado' };
-      const status = statusMap[o.status] || o.status;
-      // Wrap strings in quotes and use semicolon delimiter for pt-BR Excel compatibility
-      return [o.id, dataStr, o.productName, o.contact, o.cep, o.totalWeight, val, frete, status].map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';');
-    });
 
-    const csvContent = "\uFEFF" + headers.join(';') + '\n' + rows.join('\n'); // \uFEFF is BOM for UTF-8 in Excel
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `pedidos_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  });
-
-  // Handle Orders
-  document.querySelectorAll('.process-order-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const id = (e.currentTarget as HTMLElement).dataset.id!;
-      const o = orders.find(ord => ord.id === id);
-      if (o) {
-        o.status = 'PROCESSING';
-        await store.updateOrder(o);
-        renderDashboard(container);
-      }
-    });
-  });
-
-  document.querySelectorAll('.finish-order-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const id = (e.currentTarget as HTMLElement).dataset.id!;
-      const o = orders.find(ord => ord.id === id);
-      if (o) {
-        const costStr = prompt('Informe o valor do frete (ex: 25.50):');
-        if (costStr) {
-          const cost = parseFloat(costStr.replace(',', '.'));
-          if (!isNaN(cost) && cost >= 0) {
-            o.shippingCost = cost;
-            o.status = 'PROCESSED';
-            await store.updateOrder(o);
-            renderDashboard(container);
-          } else {
-            alert('Valor de frete inválido.');
-          }
-        }
-      }
-    });
-  });
-
-  document.querySelectorAll('.contact-client-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const id = (e.currentTarget as HTMLElement).dataset.id!;
-      const o = orders.find(ord => ord.id === id);
-      if (o) {
-        const cleanPhone = o.contact.replace(/\D/g, '');
-        // If BR doesn't have country code, add it
-        const phone = cleanPhone.length <= 11 ? '55' + cleanPhone : cleanPhone;
-        const msg = `Olá! O seu pedido *${o.productName}* (${o.quantity} un.) foi processado.\n\nO valor do seu pacote ficou em R$ ${o.totalValue.toFixed(2).replace('.', ',')}.\nO valor do frete para o CEP ${o.cep} é de R$ ${o.shippingCost?.toFixed(2).replace('.', ',')}.\n\nTotal do pedido: R$ ${(o.totalValue + (o.shippingCost || 0)).toFixed(2).replace('.', ',')}\n\nPodemos fechar o pedido?`;
-        window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`, '_blank');
-      }
-    });
-  });
-
-  // Handle Admins
-  document.getElementById('addAdminForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const emailInput = document.getElementById('newAdminEmail') as HTMLInputElement;
-    const email = emailInput.value.trim().toLowerCase();
-    
-    if (email && email !== 'darciodfx@gmail.com') {
-      try {
-        await store.addAdmin(email);
-        emailInput.value = '';
-        renderDashboard(container);
-      } catch (error) {
-        console.error(error);
-        alert('Erro ao adicionar administrador.');
-      }
-    }
-  });
-
-  document.querySelectorAll('.remove-admin-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const email = (e.currentTarget as HTMLElement).dataset.email!;
-      if (confirm(`Tem certeza que deseja remover ${email} dos administradores?`)) {
-        try {
-          await store.deleteAdmin(email);
-          renderDashboard(container);
-        } catch (error) {
-          console.error(error);
-          alert('Erro ao remover administrador.');
-        }
-      }
-    });
-  });
 
   // Handle Image Preview
   fileInput.addEventListener('change', async () => {

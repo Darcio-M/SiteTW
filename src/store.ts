@@ -1,50 +1,76 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const rawUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
+const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, '');
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
 
-export const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+let client = null;
+try {
+  if (supabaseUrl.startsWith('http') && supabaseAnonKey) {
+    client = createClient(supabaseUrl, supabaseAnonKey);
+  }
+} catch (e) {
+  console.error("Failed to initialize Supabase client:", e);
+}
 
-export async function loginWithGoogle(): Promise<{ success: boolean; error?: string }> {
+export const supabase = client;
+
+export async function loginWithEmail(email: string, password: string): Promise<{ success: boolean; error?: string }> {
   if (!supabase) {
-    return { success: false, error: 'Supabase não está configurado. Adicione VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.' };
+    return { success: false, error: 'Supabase não está configurado. Verifique VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no painel da Vercel.' };
   }
 
   try {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin
-      }
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     });
 
     if (error) throw error;
     
-    // Note: OAuth sign-in is typically a redirect, so the session is established after return.
-    // However, if the user is already signed in (we should check session).
-    
     return { success: true };
   } catch (error: any) {
     console.error(error);
-    return { success: false, error: error.message || 'Erro ao realizar login.' };
+    const errorMsg = typeof error.message === 'string' ? error.message : JSON.stringify(error);
+    
+    if (errorMsg.includes('Invalid login credentials')) {
+      return { success: false, error: 'Email ou senha incorretos.' };
+    }
+    
+    if (errorMsg.includes('Email not confirmed')) {
+      return { success: false, error: 'Email não confirmado.\n\nPara o painel de administração, você pode desativar a confirmação de email:\n1. Acesse o painel do Supabase\n2. Vá em Authentication > Providers > Email\n3. Desmarque a opção "Confirm email" e salve.' };
+    }
+    
+    return { success: false, error: errorMsg || 'Erro ao realizar login.' };
   }
 }
 
 export async function checkAdminSession(): Promise<boolean> {
   if (!supabase) return false;
   
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user?.email) return false;
-  
-  if (session.user.email === 'darciodfx@gmail.com') return true;
-  
-  const { data, error } = await supabase
-    .from('admins')
-    .select('email')
-    .eq('email', session.user.email)
-    .maybeSingle();
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) {
+      console.error('Supabase session error:', error);
+      return false;
+    }
     
-  return !!data;
+    if (!data?.session?.user?.email) return false;
+    
+    // Allow the main owner email explicitly, or check the admins table
+    if (data.session.user.email === 'darciodfx@gmail.com') return true;
+    
+    const { data: adminData } = await supabase
+      .from('admins')
+      .select('email')
+      .eq('email', data.session.user.email)
+      .maybeSingle();
+      
+    return !!adminData;
+  } catch (e) {
+    console.error('Unexpected checkAdminSession error:', e);
+    return false;
+  }
 }
 
 export interface Admin {
@@ -78,21 +104,7 @@ export interface Category {
   name: string;
 }
 
-export type OrderStatus = 'PENDING' | 'PROCESSING' | 'PROCESSED';
 
-export interface Order {
-  id: string;
-  productId: string;
-  productName: string;
-  quantity: number;
-  cep: string;
-  contact: string;
-  totalWeight: number;
-  totalValue: number;
-  status: OrderStatus;
-  shippingCost?: number;
-  createdAt: number;
-}
 
 // Initial Mock Data
 export const defaultCategories: Category[] = [
@@ -238,31 +250,7 @@ class Store {
     if (error) throw error;
   }
 
-  // --- Orders ---
-  
-  async createOrder(order: Order): Promise<void> {
-    if (!supabase) return;
-    const { error } = await supabase.from('orders').upsert(order);
-    if (error) throw error;
-  }
 
-  async getOrders(): Promise<Order[]> {
-    if (!supabase) return [];
-    try {
-      const { data, error } = await supabase.from('orders').select('*');
-      if (error) throw error;
-      return (data || []) as Order[];
-    } catch (e) {
-      console.error(e);
-      return [];
-    }
-  }
-
-  async updateOrder(order: Order): Promise<void> {
-    if (!supabase) return;
-    const { error } = await supabase.from('orders').upsert(order);
-    if (error) throw error;
-  }
 }
 
 export const store = new Store();

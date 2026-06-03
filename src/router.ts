@@ -47,8 +47,12 @@ export function initApp() {
             <span class="font-serif text-2xl font-semibold tracking-tight text-sleek-text block mb-6">TW<span class="text-sleek-accent">Acrilicos</span></span>
             <p class="text-sleek-text-light text-sm leading-relaxed mb-6 max-w-sm">Presentes exclusivos e personalizados. A delicadeza do design contemporâneo unida à sofisticação dos seus melhores momentos.</p>
             <div class="flex gap-4">
-              <a href="#" class="w-10 h-10 rounded-full bg-sleek-surface flex items-center justify-center text-sleek-accent hover:bg-sleek-accent hover:text-white transition-colors"><i data-lucide="instagram" class="w-5 h-5"></i></a>
-              <a href="#" class="w-10 h-10 rounded-full bg-sleek-surface flex items-center justify-center text-sleek-accent hover:bg-sleek-accent hover:text-white transition-colors"><i data-lucide="facebook" class="w-5 h-5"></i></a>
+              <a href="https://www.instagram.com/twacrilicos/" target="_blank" rel="noopener noreferrer" class="w-10 h-10 rounded-full bg-sleek-surface flex items-center justify-center text-sleek-accent hover:bg-sleek-accent hover:text-white transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
+              </a>
+              <a href="https://www.instagram.com/dm3.studio/" target="_blank" rel="noopener noreferrer" class="w-10 h-10 rounded-full bg-sleek-surface flex items-center justify-center text-sleek-accent hover:bg-sleek-accent hover:text-white transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
+              </a>
             </div>
           </div>
           <div>
@@ -61,9 +65,9 @@ export function initApp() {
           <div>
             <h4 class="text-[10px] uppercase tracking-[0.2em] font-bold text-sleek-text mb-6">Contato</h4>
             <ul class="space-y-4 text-sm font-light text-sleek-text-light">
-              <li>contato@twacrilicos.com.br</li>
-              <li>(11) 99999-9999</li>
-              <li>Atendimento Seg-Sex, 9h às 18h</li>
+              <li>(88) 9 9242-9454</li>
+              <li>Atendimento Seg-Sab, 9h às 18h</li>
+              <li><a href="#admin" class="hover:text-sleek-accent transition-colors">Administração</a></li>
             </ul>
           </div>
         </div>
@@ -98,7 +102,13 @@ async function handleRoute() {
   const content = document.getElementById('app-content');
   if (!content) return;
   
-  const hash = window.location.hash.slice(1) || 'home';
+  let hash = window.location.hash.slice(1);
+  if (!hash && window.location.pathname !== '/') {
+    hash = window.location.pathname.slice(1);
+  }
+  if (hash.startsWith('/')) hash = hash.slice(1);
+  hash = hash.split('?')[0]; // Remove any query parameters that might be appended
+  hash = hash || 'home';
   const parts = hash.split('/');
   const view = parts[0];
   const id = parts[1];

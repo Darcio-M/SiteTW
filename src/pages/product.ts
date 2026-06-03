@@ -53,7 +53,7 @@ export async function renderProduct(container: HTMLElement, id: string) {
             <h1 class="text-4xl font-serif text-sleek-text mb-4">${product.name}</h1>
             <p class="text-2xl font-sans text-sleek-accent mb-2 font-medium">${formattedPrice}</p>
             <p class="text-xs font-sans text-sleek-text-light mb-8">
-               Mínimo: ${product.minQuantity || 1} un. | Atacado a partir de ${product.wholesaleMinQuantity || 10} un. (R$ ${((product.wholesalePrice || product.price)).toFixed(2).replace('.',',')}/un.)
+               Mínimo: ${product.minQuantity || 1} un. | Atacado a partir de ${product.wholesaleMinQuantity || 10} un. (R$ ${((product.wholesalePrice || product.price || 0)).toFixed(2).replace('.',',')}/un.)
             </p>
             
             <div class="font-sans font-light text-sleek-text-light mb-6 leading-relaxed text-sm">
@@ -150,9 +150,10 @@ export async function renderProduct(container: HTMLElement, id: string) {
      if (qty < minQ) {
        labelText = 'Tratar com o vendedor:';
      } else if (qty >= wholesaleMinQ) {
-       currentPrice = product.wholesalePrice || product.price;
+       currentPrice = product.wholesalePrice || product.price || 0;
        labelText = 'Valor (Atacado):';
      } else {
+       currentPrice = product.price || 0;
        labelText = 'Valor:';
      }
 
@@ -160,10 +161,10 @@ export async function renderProduct(container: HTMLElement, id: string) {
        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full">
          <div class="mb-2 sm:mb-0">
            <span class="text-sleek-text-light font-medium block sm:inline">${labelText} </span> 
-           <span class="text-lg font-bold text-sleek-text">R$ ${currentPrice.toFixed(2).replace('.',',')} <span class="text-xs font-light">/ un.</span></span>
+           <span class="text-lg font-bold text-sleek-text">R$ ${(currentPrice || 0).toFixed(2).replace('.',',')} <span class="text-xs font-light">/ un.</span></span>
          </div>
          <div class="sm:ml-4 sm:pl-4 border-t sm:border-t-0 sm:border-l border-sleek-border pt-2 sm:pt-0 mt-2 sm:mt-0">
-           <span class="text-sleek-accent font-bold">Total: R$ ${(currentPrice * qty).toFixed(2).replace('.',',')}</span>
+           <span class="text-sleek-accent font-bold">Total: R$ ${((currentPrice || 0) * qty).toFixed(2).replace('.',',')}</span>
          </div>
        </div>
      `;
@@ -175,41 +176,13 @@ export async function renderProduct(container: HTMLElement, id: string) {
      const message = `Olá! Tenho interesse no produto *${product.name}*.\nLink: ${currentUrl}\nQuantidade: ${qty}${totalWeightStr}\nCEP: ${cep || 'Não informado'}\nContato Cliente: ${contact || 'Não informado'}\nPor favor, gostaria de consultar o frete e fechar o pedido.`;
      buyBtn.href = `https://api.whatsapp.com/send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
     
-     buyBtn.onclick = async (e) => {
-       e.preventDefault();
+     buyBtn.onclick = (e) => {
        if (qty <= 0 || !cep || !contact) {
+         e.preventDefault();
          errorMsg.textContent = 'Preencha o Contato, CEP e a quantidade (mínima de 1) para continuar.';
          errorMsg.classList.remove('hidden');
        } else {
          errorMsg.classList.add('hidden');
-         const originalText = buyBtn.textContent || 'Comprar pelo WhatsApp';
-         buyBtn.textContent = 'Aguarde...';
-         buyBtn.style.pointerEvents = 'none';
-         
-         try {
-           const orderId = 'ORD-' + Math.random().toString(36).substring(2, 9).toUpperCase();
-           await store.createOrder({
-             id: orderId,
-             productId: product.id,
-             productName: product.name,
-             quantity: qty,
-             cep: cep,
-             contact: contact,
-             totalWeight: totalWeight,
-             totalValue: currentPrice * qty,
-             status: 'PENDING',
-             createdAt: Date.now()
-           });
-           
-           window.open(`https://api.whatsapp.com/send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`, '_blank');
-         } catch(error) {
-           console.error(error);
-           errorMsg.textContent = 'Erro ao processar o pedido. Tente novamente.';
-           errorMsg.classList.remove('hidden');
-         } finally {
-           buyBtn.textContent = originalText;
-           buyBtn.style.pointerEvents = 'auto';
-         }
        }
      };
   }
