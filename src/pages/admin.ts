@@ -194,30 +194,13 @@ async function renderDashboard(container: HTMLElement) {
 
               <div class="grid grid-cols-2 gap-4">
                 <div>
-                  <label class="block text-[10px] font-bold text-sleek-text-light uppercase tracking-wider mb-1">Preço Base (R$)</label>
-                  <input type="number" step="0.01" id="p_price" required class="w-full border border-sleek-border rounded-xl p-3 text-sm focus:ring-sleek-accent focus:border-sleek-accent transition-colors">
-                </div>
-                <div>
                   <label class="block text-[10px] font-bold text-sleek-text-light uppercase tracking-wider mb-1">Qtde Mínima Base</label>
                   <input type="number" id="p_minQuantity" required value="1" class="w-full border border-sleek-border rounded-xl p-3 text-sm focus:ring-sleek-accent focus:border-sleek-accent transition-colors">
-                </div>
-              </div>
-
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label class="block text-[10px] font-bold text-sleek-text-light uppercase tracking-wider mb-1">Preço Atacado (R$)</label>
-                  <input type="number" step="0.01" id="p_wholesalePrice" required class="w-full border border-sleek-border rounded-xl p-3 text-sm focus:ring-sleek-accent focus:border-sleek-accent transition-colors">
                 </div>
                 <div>
                   <label class="block text-[10px] font-bold text-sleek-text-light uppercase tracking-wider mb-1">Qtde Mínima Atacado</label>
                   <input type="number" id="p_wholesaleMinQuantity" required value="10" class="w-full border border-sleek-border rounded-xl p-3 text-sm focus:ring-sleek-accent focus:border-sleek-accent transition-colors">
                 </div>
-              </div>
-
-              <div>
-                <label class="block text-[10px] font-bold text-sleek-text-light uppercase tracking-wider mb-1">Peso Total por Unidade (gramas)</label>
-                <input type="number" id="p_weight" required value="0" class="w-full border border-sleek-border rounded-xl p-3 text-sm focus:ring-sleek-accent focus:border-sleek-accent transition-colors">
-                <p class="text-xs text-sleek-text-light mt-1 font-light opacity-60">Ex: 50 para 50g, 1000 para 1kg. Não é exibido ao cliente.</p>
               </div>
 
               <div class="hidden">
@@ -492,7 +475,7 @@ async function renderDashboard(container: HTMLElement) {
     document.getElementById('p_existing_image_urls')!.setAttribute('value', '[]');
     (document.getElementById('p_orderIndex') as HTMLInputElement).value = '';
     uploadedBase64Images = [];
-    currentSizes = [];
+    currentSizes = [{ label: 'Único', price: 0, weight: 0, wholesalePrice: 0 }];
     renderSizes();
     renderPreviews([]);
     document.getElementById('modalTitle')!.innerText = 'Adicionar Produto';
@@ -537,11 +520,8 @@ async function renderDashboard(container: HTMLElement) {
         (document.getElementById('p_id') as HTMLInputElement).value = p.id;
         (document.getElementById('p_createdAt') as HTMLInputElement).value = p.createdAt.toString();
         (document.getElementById('p_name') as HTMLInputElement).value = p.name;
-        (document.getElementById('p_price') as HTMLInputElement).value = p.price.toString();
         (document.getElementById('p_minQuantity') as HTMLInputElement).value = (p.minQuantity || 1).toString();
-        (document.getElementById('p_wholesalePrice') as HTMLInputElement).value = (p.wholesalePrice || p.price).toString();
         (document.getElementById('p_wholesaleMinQuantity') as HTMLInputElement).value = (p.wholesaleMinQuantity || 10).toString();
-        (document.getElementById('p_weight') as HTMLInputElement).value = (p.weight || 0).toString();
         (document.getElementById('p_category') as HTMLSelectElement).value = p.category;
         (document.getElementById('p_orderIndex') as HTMLInputElement).value = p.orderIndex ? p.orderIndex.toString() : '';
         (document.getElementById('p_featured') as HTMLInputElement).checked = p.featured;
@@ -555,7 +535,9 @@ async function renderDashboard(container: HTMLElement) {
         uploadedBase64Images = [];
         renderPreviews(imagesList);
 
-        currentSizes = p.sizes ? structuredClone(p.sizes) : [];
+        currentSizes = p.sizes && p.sizes.length > 0 
+          ? structuredClone(p.sizes) 
+          : [{ label: 'Único', price: p.price, weight: p.weight, wholesalePrice: p.wholesalePrice }];
         renderSizes();
         
         document.getElementById('modalTitle')!.innerText = 'Editar Produto';
@@ -611,14 +593,20 @@ async function renderDashboard(container: HTMLElement) {
     const pCreatedAtVal = (document.getElementById('p_createdAt') as HTMLInputElement).value;
     const finalCreatedAt = pCreatedAtVal ? parseInt(pCreatedAtVal) : Date.now();
 
+    if (currentSizes.length === 0) {
+      alert("Por favor, adicione pelo menos uma variação (tamanho/modelo)!");
+      return;
+    }
+    const baseSize = currentSizes[0];
+
     const newProduct: Product = {
       id: (document.getElementById('p_id') as HTMLInputElement).value || Date.now().toString(),
       name: (document.getElementById('p_name') as HTMLInputElement).value,
-      price: parseFloat((document.getElementById('p_price') as HTMLInputElement).value),
+      price: baseSize.price,
       minQuantity: parseInt((document.getElementById('p_minQuantity') as HTMLInputElement).value) || 1,
-      wholesalePrice: parseFloat((document.getElementById('p_wholesalePrice') as HTMLInputElement).value),
+      wholesalePrice: baseSize.wholesalePrice || baseSize.price,
       wholesaleMinQuantity: parseInt((document.getElementById('p_wholesaleMinQuantity') as HTMLInputElement).value) || 10,
-      weight: parseFloat((document.getElementById('p_weight') as HTMLInputElement).value) || 0,
+      weight: baseSize.weight || 0,
       category: (document.getElementById('p_category') as HTMLSelectElement).value,
       description: (document.getElementById('p_desc') as HTMLTextAreaElement).value,
       featured: (document.getElementById('p_featured') as HTMLInputElement).checked,
@@ -626,7 +614,7 @@ async function renderDashboard(container: HTMLElement) {
       imageUrl,
       imageUrls: finalUrls,
       createdAt: finalCreatedAt,
-      sizes: currentSizes.length > 0 ? currentSizes : undefined,
+      sizes: currentSizes,
       orderIndex: (document.getElementById('p_orderIndex') as HTMLInputElement).value ? parseInt((document.getElementById('p_orderIndex') as HTMLInputElement).value) : undefined
     };
 

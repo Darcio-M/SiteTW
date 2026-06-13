@@ -60,7 +60,7 @@ export async function renderProduct(container: HTMLElement, id: string) {
               <p>${product.description}</p>
             </div>
 
-            ${product.sizes && product.sizes.length > 0 ? `
+            ${product.sizes && product.sizes.length > 1 ? `
             <div class="mb-6 font-sans">
               <label class="block text-[10px] font-bold uppercase tracking-[0.2em] text-sleek-text-light mb-2">Selecione o Tamanho/Variação</label>
               <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -176,12 +176,17 @@ export async function renderProduct(container: HTMLElement, id: string) {
      let baseP = product.price;
      let wholesaleP = product.wholesalePrice || product.price;
 
-     if (product.sizes && product.sizes.length > 0 && selectedSizeIdx >= 0) {
-       const s = product.sizes[selectedSizeIdx];
+     if (product.sizes && product.sizes.length > 0) {
+       let s = product.sizes[0];
+       if (selectedSizeIdx >= 0 && selectedSizeIdx < product.sizes.length) {
+         s = product.sizes[selectedSizeIdx];
+       }
        baseP = s.price;
        wholesaleP = s.wholesalePrice || s.price;
        currentWeight = s.weight || currentWeight;
-       sizeLabel = s.label;
+       if (product.sizes.length > 1) {
+         sizeLabel = s.label;
+       }
      }
 
      if (qty < minQ) {
