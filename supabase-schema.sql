@@ -21,7 +21,9 @@ create table public.products (
   "imageUrls" text[],
   featured boolean default false,
   "bestSeller" boolean default false,
-  "createdAt" bigint not null
+  "createdAt" bigint not null,
+  sizes jsonb,
+  "orderIndex" bigint
 );
 
 -- Categories Table

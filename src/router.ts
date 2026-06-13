@@ -23,6 +23,9 @@ export function initApp() {
             </nav>
 
             <div class="flex items-center space-x-6">
+              <a href="https://api.whatsapp.com/send?phone=5588992544294" target="_blank" rel="noopener noreferrer" class="hidden md:flex items-center gap-2 border border-sleek-border hover:border-green-500 hover:text-green-600 px-4 py-2 rounded-full text-[10px] uppercase tracking-widest font-bold transition-colors">
+                <i data-lucide="message-circle" class="w-4 h-4"></i> Fale Conosco
+              </a>
               <button id="mobile-menu-btn" class="md:hidden opacity-60 hover:opacity-100"><i data-lucide="menu" class="w-6 h-6"></i></button>
             </div>
           </div>
@@ -33,6 +36,7 @@ export function initApp() {
           <div class="px-4 pt-2 pb-6 space-y-2">
             <a href="#home" class="mobile-link block px-3 py-3 text-sm uppercase tracking-[0.2em] font-medium hover:text-sleek-accent hover:bg-sleek-surface rounded-md transition-colors">Início</a>
             <a href="#shop" class="mobile-link block px-3 py-3 text-sm uppercase tracking-[0.2em] font-medium hover:text-sleek-accent hover:bg-sleek-surface rounded-md transition-colors">Catálogo</a>
+            <a href="https://api.whatsapp.com/send?phone=5588992544294" target="_blank" rel="noopener noreferrer" class="mobile-link flex items-center gap-2 px-3 py-3 text-sm uppercase tracking-[0.2em] font-medium text-green-600 hover:bg-green-50 rounded-md transition-colors"><i data-lucide="message-circle" class="w-4 h-4"></i> Fale Conosco</a>
           </div>
         </div>
       </header>
@@ -98,6 +102,8 @@ export function initApp() {
   }
 }
 
+let currentView = '';
+
 async function handleRoute() {
   const content = document.getElementById('app-content');
   if (!content) return;
@@ -113,6 +119,27 @@ async function handleRoute() {
   const view = parts[0];
   const id = parts[1];
 
+  // If we are just scrolling between home and shop sections, don't re-render everything
+  const isHomeOrShop = (v: string) => v === 'home' || v === 'shop';
+  
+  if (isHomeOrShop(view) && isHomeOrShop(currentView)) {
+    if (view === 'shop') {
+      const el = document.getElementById('shop');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    currentView = view;
+    return; // Don't re-render
+  }
+
+  // Fade out effect
+  content.style.opacity = '0';
+  content.style.transition = 'opacity 0.3s ease-out';
+  
+  // Wait for fade out
+  await new Promise(resolve => setTimeout(resolve, 300));
+  
   window.scrollTo(0, 0);
 
   if (view === 'home' || view === 'shop') {
@@ -131,8 +158,13 @@ async function handleRoute() {
     content.innerHTML = '<div class="p-20 text-center"><h2 class="text-2xl text-gray-500">Página não encontrada</h2></div>';
   }
 
+  currentView = view;
+
   // Refresh lucide icons
   createIcons({
     icons
   });
+  
+  // Fade in effect
+  content.style.opacity = '1';
 }

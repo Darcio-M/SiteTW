@@ -80,11 +80,17 @@ function renderLogin(container: HTMLElement) {
       }
     }
   });
+  
+  if ((window as any).lucide) {
+    (window as any).lucide.createIcons();
+  }
 }
 
 async function renderDashboard(container: HTMLElement) {
   const products = await store.getProducts();
+  let localProducts = [...products];
   const categories = await store.getCategories();
+  let isOrderingMode = false;
 
   let html = `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -96,7 +102,10 @@ async function renderDashboard(container: HTMLElement) {
       <div class="bg-white rounded-3xl soft-shadow border border-sleek-border overflow-hidden">
         <div class="border-b border-sleek-border bg-sleek-surface p-6 flex justify-between items-center">
           <h2 class="text-xl font-serif text-sleek-text">Gerenciar Produtos</h2>
-          <button id="addBtn" class="gold-gradient text-white px-4 py-2 rounded-full text-[10px] uppercase tracking-widest font-bold hover:opacity-90 transition-opacity">Adicionar Produto</button>
+          <div class="flex gap-3">
+            <button id="toggleOrderBtn" class="bg-gray-100 text-sleek-text hover:bg-gray-200 px-4 py-2 rounded-full text-[10px] uppercase tracking-widest font-bold transition-colors">Alterar Ordem</button>
+            <button id="addBtn" class="gold-gradient text-white px-4 py-2 rounded-full text-[10px] uppercase tracking-widest font-bold hover:opacity-90 transition-opacity">Adicionar Produto</button>
+          </div>
         </div>
         
         <div class="p-6">
@@ -111,23 +120,7 @@ async function renderDashboard(container: HTMLElement) {
                   <th class="py-3 px-4 text-sm font-semibold text-gray-600 uppercase">Ações</th>
                 </tr>
               </thead>
-              <tbody>
-                ${products.map(p => `
-                  <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                    <td class="py-3 px-4"><img src="${p.imageUrl}" class="w-12 h-12 object-cover rounded shadow-sm"></td>
-                    <td class="py-3 px-4 font-medium text-gray-900">${p.name}</td>
-                    <td class="py-3 px-4 text-gray-500">R$ ${(p.price || 0).toFixed(2)}</td>
-                    <td class="py-3 px-4">
-                      ${p.featured ? '<span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full font-medium">Bela Cura</span>' : ''}
-                      ${p.bestSeller ? '<span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium mt-1 inline-block">Best Seller</span>' : ''}
-                    </td>
-                    <td class="py-3 px-4">
-                       <button class="text-blue-500 hover:underline mr-3 text-sm edit-btn" data-id="${p.id}">Editar</button>
-                       <button class="text-red-500 hover:underline text-sm delete-btn" data-id="${p.id}">Excluir</button>
-                    </td>
-                  </tr>
-                `).join('')}
-                ${products.length === 0 ? '<tr><td colspan="5" class="py-10 text-center text-gray-400">Nenhum produto cadastrado.</td></tr>' : ''}
+              <tbody id="product-list">
               </tbody>
             </table>
           </div>
@@ -182,6 +175,7 @@ async function renderDashboard(container: HTMLElement) {
         </div>
         <form id="productForm" class="p-6 space-y-6">
           <input type="hidden" id="p_id">
+          <input type="hidden" id="p_createdAt">
           <input type="hidden" id="p_existing_image">
           
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
@@ -226,6 +220,12 @@ async function renderDashboard(container: HTMLElement) {
                 <p class="text-xs text-sleek-text-light mt-1 font-light opacity-60">Ex: 50 para 50g, 1000 para 1kg. Não é exibido ao cliente.</p>
               </div>
 
+              <div class="hidden">
+                <label class="block text-[10px] font-bold text-sleek-text-light uppercase tracking-wider mb-1">Ordem de Exibição</label>
+                <input type="number" id="p_orderIndex" placeholder="Deixe em branco p/ padrão" class="w-full border border-sleek-border rounded-xl p-3 text-sm focus:ring-sleek-accent focus:border-sleek-accent transition-colors">
+                <p class="text-xs text-sleek-text-light mt-1 font-light opacity-60">Números maiores aparecem primeiro.</p>
+              </div>
+
               <div class="flex gap-4 pt-2">
                 <label class="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" id="p_featured" class="rounded text-sleek-accent focus:ring-sleek-accent border-sleek-border">
@@ -257,6 +257,17 @@ async function renderDashboard(container: HTMLElement) {
             <textarea id="p_desc" required rows="4" class="w-full border border-sleek-border rounded-xl p-3 text-sm focus:ring-sleek-accent focus:border-sleek-accent transition-colors"></textarea>
           </div>
 
+          <div class="font-sans border-t border-sleek-border pt-6">
+            <div class="flex justify-between items-center mb-4">
+              <label class="block text-sm font-medium text-sleek-text">Tamanhos / Variações (Opcional)</label>
+              <button type="button" id="addSizeBtn" class="text-[10px] uppercase font-bold tracking-widest text-sleek-accent hover:text-sleek-text transition-colors">+ Adicionar Tamanho</button>
+            </div>
+            <div id="p_sizes_container" class="space-y-4">
+               <!-- Sizes will be injected here -->
+            </div>
+            <p class="text-xs text-sleek-text-light mt-2 font-light opacity-60">Se preenchido, o cliente poderá escolher o tamanho. O preço/peso da variação substituirá o valor base.</p>
+          </div>
+
           <div class="pt-6 border-t border-sleek-border flex justify-end gap-4">
             <button type="button" id="cancelProductBtn" class="bg-white border border-sleek-border text-sleek-text px-8 py-3 rounded-full text-[10px] uppercase font-bold tracking-widest hover:bg-gray-50 transition-colors">Voltar</button>
             <button type="submit" class="gold-gradient text-white px-8 py-3 rounded-full text-[10px] uppercase font-bold tracking-widest soft-shadow hover:opacity-90 transition-opacity">Salvar Produto</button>
@@ -267,6 +278,113 @@ async function renderDashboard(container: HTMLElement) {
   `;
 
   container.innerHTML = html;
+  
+  const toggleOrderBtn = document.getElementById('toggleOrderBtn');
+  if (toggleOrderBtn) {
+    toggleOrderBtn.addEventListener('click', async () => {
+      if (isOrderingMode) {
+        // Toggled OFF -> Salvar
+        isOrderingMode = false;
+        toggleOrderBtn.innerText = 'Salvando...';
+        
+        // Recompute orders
+        const updates: {id: string, orderIndex: number}[] = [];
+        const total = localProducts.length;
+        localProducts.forEach((p, i) => {
+          updates.push({ id: p.id, orderIndex: total - i });
+        });
+        
+        try {
+          await store.updateProductsOrder(updates);
+          renderDashboard(container); // Refresh completely
+        } catch (e) {
+          console.error(e);
+          alert('Erro ao salvar a ordem.');
+          toggleOrderBtn.innerText = 'Alterar Ordem';
+        }
+
+      } else {
+        // Toggled ON
+        isOrderingMode = true;
+        toggleOrderBtn.innerText = 'Salvar Ordem';
+        toggleOrderBtn.classList.add('bg-black', 'text-white', 'hover:bg-gray-900');
+        toggleOrderBtn.classList.remove('bg-gray-100', 'text-sleek-text');
+        renderTableRows();
+      }
+    });
+  }
+
+  function renderTableRows() {
+    const tbody = document.getElementById('product-list');
+    if (!tbody) return;
+
+    tbody.innerHTML = localProducts.map((p, index) => `
+      <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors bg-white" data-id="${p.id}">
+        ${isOrderingMode ? `
+        <td class="py-3 px-4 flex items-center gap-3 w-32 border-r border-gray-100 bg-gray-50/50">
+          <div class="flex flex-col gap-1">
+            <button class="text-gray-500 hover:text-black disabled:opacity-20 disabled:cursor-not-allowed move-up-btn bg-white rounded p-1 shadow-sm border border-gray-200" data-index="${index}" ${index === 0 ? 'disabled' : ''} title="Subir">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+            </button>
+            <button class="text-gray-500 hover:text-black disabled:opacity-20 disabled:cursor-not-allowed move-down-btn bg-white rounded p-1 shadow-sm border border-gray-200" data-index="${index}" ${index === localProducts.length - 1 ? 'disabled' : ''} title="Descer">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+          </div>
+          <img src="${p.imageUrl}" class="w-10 h-10 object-cover rounded shadow-sm">
+        </td>
+        ` : `
+        <td class="py-3 px-4"><img src="${p.imageUrl}" class="w-12 h-12 object-cover rounded shadow-sm"></td>
+        `}
+        <td class="py-3 px-4 font-medium text-gray-900">${p.name}</td>
+        <td class="py-3 px-4 text-gray-500">R$ ${(p.price || 0).toFixed(2)}</td>
+        <td class="py-3 px-4">
+          ${p.featured ? '<span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full font-medium">Bela Cura</span>' : ''}
+          ${p.bestSeller ? '<span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium mt-1 inline-block">Best Seller</span>' : ''}
+        </td>
+        <td class="py-3 px-4">
+           ${!isOrderingMode ? `
+           <button class="text-blue-500 hover:underline mr-3 text-sm edit-btn" data-id="${p.id}">Editar</button>
+           <button class="text-red-500 hover:underline text-sm delete-btn" data-id="${p.id}">Excluir</button>
+           ` : '<span class="text-gray-400 text-[10px] uppercase tracking-wider font-semibold">Movendo...</span>'}
+        </td>
+      </tr>
+    `).join('') + (localProducts.length === 0 ? '<tr><td colspan="5" class="py-10 text-center text-gray-400">Nenhum produto cadastrado.</td></tr>' : '');
+
+    if ((window as any).lucide) {
+      (window as any).lucide.createIcons();
+    }
+
+    if (isOrderingMode) {
+      document.querySelectorAll('.move-up-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const idx = parseInt((e.currentTarget as HTMLButtonElement).dataset.index!);
+          if (idx > 0) {
+            const temp = localProducts[idx];
+            localProducts[idx] = localProducts[idx - 1];
+            localProducts[idx - 1] = temp;
+            renderTableRows();
+          }
+        });
+      });
+
+      document.querySelectorAll('.move-down-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const idx = parseInt((e.currentTarget as HTMLButtonElement).dataset.index!);
+          if (idx < localProducts.length - 1) {
+            const temp = localProducts[idx];
+            localProducts[idx] = localProducts[idx + 1];
+            localProducts[idx + 1] = temp;
+            renderTableRows();
+          }
+        });
+      });
+    } else {
+      attachProductActions();
+    }
+  }
+
+  // Initial render
+  renderTableRows();
 
   // Logout
   document.getElementById('logoutBtn')?.addEventListener('click', async () => {
@@ -282,6 +400,7 @@ async function renderDashboard(container: HTMLElement) {
   const fileInput = document.getElementById('p_image') as HTMLInputElement;
 
   let uploadedBase64Images: string[] = [];
+  let currentSizes: {label: string, price: number, weight?: number, wholesalePrice?: number}[] = [];
 
   function renderPreviews(urls: string[]) {
     if (urls.length === 0) {
@@ -293,12 +412,88 @@ async function renderDashboard(container: HTMLElement) {
     imgPreviewContainer.innerHTML = urls.map(url => `<img src="${url}" class="w-full h-24 object-cover rounded-xl shadow-sm border border-sleek-border">`).join('');
   }
 
+  function renderSizes() {
+    const container = document.getElementById('p_sizes_container')!;
+    if (currentSizes.length === 0) {
+      container.innerHTML = '<p class="text-xs text-sleek-text-light italic">Nenhum tamanho adicionado.</p>';
+      return;
+    }
+    
+    container.innerHTML = currentSizes.map((size, index) => `
+      <div class="flex items-end gap-2 border border-sleek-border p-3 rounded-xl bg-gray-50">
+        <div class="flex-1">
+          <label class="block text-[10px] font-bold text-sleek-text-light uppercase mb-1">Rotulo (Ex: P, M, 20cm)</label>
+          <input type="text" value="${size.label}" data-index="${index}" class="size-label w-full border border-sleek-border rounded-lg p-2 text-sm focus:ring-sleek-accent">
+        </div>
+        <div class="w-24">
+          <label class="block text-[10px] font-bold text-sleek-text-light uppercase mb-1">R$ Base</label>
+          <input type="number" step="0.01" value="${size.price}" data-index="${index}" class="size-price w-full border border-sleek-border rounded-lg p-2 text-sm focus:ring-sleek-accent">
+        </div>
+        <div class="w-24">
+          <label class="block text-[10px] font-bold text-sleek-text-light uppercase mb-1">R$ Atacado</label>
+          <input type="number" step="0.01" value="${size.wholesalePrice || ''}" data-index="${index}" class="size-wholesale w-full border border-sleek-border rounded-lg p-2 text-sm focus:ring-sleek-accent">
+        </div>
+        <div class="w-24">
+          <label class="block text-[10px] font-bold text-sleek-text-light uppercase mb-1">Peso(g)</label>
+          <input type="number" value="${size.weight || ''}" data-index="${index}" class="size-weight w-full border border-sleek-border rounded-lg p-2 text-sm focus:ring-sleek-accent">
+        </div>
+        <button type="button" data-index="${index}" class="remove-size-btn p-2 text-red-500 hover:text-red-700 bg-white border border-sleek-border rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+      </div>
+    `).join('');
+    
+    // Add event listeners for new elements
+    if ((window as any).lucide) (window as any).lucide.createIcons();
+    
+    container.querySelectorAll('.size-label').forEach(inp => {
+      inp.addEventListener('input', (e) => {
+        const idx = parseInt((e.target as HTMLInputElement).dataset.index!);
+        currentSizes[idx].label = (e.target as HTMLInputElement).value;
+      });
+    });
+    container.querySelectorAll('.size-price').forEach(inp => {
+      inp.addEventListener('input', (e) => {
+        const idx = parseInt((e.target as HTMLInputElement).dataset.index!);
+        currentSizes[idx].price = parseFloat((e.target as HTMLInputElement).value) || 0;
+      });
+    });
+    container.querySelectorAll('.size-wholesale').forEach(inp => {
+      inp.addEventListener('input', (e) => {
+        const idx = parseInt((e.target as HTMLInputElement).dataset.index!);
+        const val = parseFloat((e.target as HTMLInputElement).value);
+        currentSizes[idx].wholesalePrice = isNaN(val) ? undefined : val;
+      });
+    });
+    container.querySelectorAll('.size-weight').forEach(inp => {
+      inp.addEventListener('input', (e) => {
+        const idx = parseInt((e.target as HTMLInputElement).dataset.index!);
+        const val = parseInt((e.target as HTMLInputElement).value);
+        currentSizes[idx].weight = isNaN(val) ? undefined : val;
+      });
+    });
+    container.querySelectorAll('.remove-size-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = parseInt((e.currentTarget as HTMLButtonElement).dataset.index!);
+        currentSizes.splice(idx, 1);
+        renderSizes();
+      });
+    });
+  }
+
+  document.getElementById('addSizeBtn')?.addEventListener('click', () => {
+    currentSizes.push({ label: '', price: 0 });
+    renderSizes();
+  });
+
   document.getElementById('addBtn')?.addEventListener('click', () => {
     form.reset();
     document.getElementById('p_id')!.setAttribute('value', '');
+    document.getElementById('p_createdAt')!.setAttribute('value', '');
     document.getElementById('p_existing_image')!.setAttribute('value', '');
     document.getElementById('p_existing_image_urls')!.setAttribute('value', '[]');
+    (document.getElementById('p_orderIndex') as HTMLInputElement).value = '';
     uploadedBase64Images = [];
+    currentSizes = [];
+    renderSizes();
     renderPreviews([]);
     document.getElementById('modalTitle')!.innerText = 'Adicionar Produto';
     modal.classList.remove('hidden');
@@ -331,47 +526,52 @@ async function renderDashboard(container: HTMLElement) {
     });
   });
 
-  // Handle Edit
-  document.querySelectorAll('.edit-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const id = (e.currentTarget as HTMLElement).dataset.id!;
-      const p = products.find(prod => prod.id === id);
-      if (!p) return;
-      
-      (document.getElementById('p_id') as HTMLInputElement).value = p.id;
-      (document.getElementById('p_name') as HTMLInputElement).value = p.name;
-      (document.getElementById('p_price') as HTMLInputElement).value = p.price.toString();
-      (document.getElementById('p_minQuantity') as HTMLInputElement).value = (p.minQuantity || 1).toString();
-      (document.getElementById('p_wholesalePrice') as HTMLInputElement).value = (p.wholesalePrice || p.price).toString();
-      (document.getElementById('p_wholesaleMinQuantity') as HTMLInputElement).value = (p.wholesaleMinQuantity || 10).toString();
-      (document.getElementById('p_weight') as HTMLInputElement).value = (p.weight || 0).toString();
-      (document.getElementById('p_category') as HTMLSelectElement).value = p.category;
-      (document.getElementById('p_featured') as HTMLInputElement).checked = p.featured;
-      (document.getElementById('p_bestseller') as HTMLInputElement).checked = p.bestSeller;
-      (document.getElementById('p_desc') as HTMLTextAreaElement).value = p.description;
-      (document.getElementById('p_existing_image') as HTMLInputElement).value = p.imageUrl;
-      
-      const imagesList = p.imageUrls && p.imageUrls.length > 0 ? p.imageUrls : [p.imageUrl];
-      (document.getElementById('p_existing_image_urls') as HTMLInputElement).value = JSON.stringify(imagesList);
-      
-      uploadedBase64Images = [];
-      renderPreviews(imagesList);
-      
-      document.getElementById('modalTitle')!.innerText = 'Editar Produto';
-      modal.classList.remove('hidden');
+  function attachProductActions() {
+    // Handle Edit
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = (e.currentTarget as HTMLElement).dataset.id!;
+        const p = products.find(prod => prod.id === id);
+        if (!p) return;
+        
+        (document.getElementById('p_id') as HTMLInputElement).value = p.id;
+        (document.getElementById('p_createdAt') as HTMLInputElement).value = p.createdAt.toString();
+        (document.getElementById('p_name') as HTMLInputElement).value = p.name;
+        (document.getElementById('p_price') as HTMLInputElement).value = p.price.toString();
+        (document.getElementById('p_minQuantity') as HTMLInputElement).value = (p.minQuantity || 1).toString();
+        (document.getElementById('p_wholesalePrice') as HTMLInputElement).value = (p.wholesalePrice || p.price).toString();
+        (document.getElementById('p_wholesaleMinQuantity') as HTMLInputElement).value = (p.wholesaleMinQuantity || 10).toString();
+        (document.getElementById('p_weight') as HTMLInputElement).value = (p.weight || 0).toString();
+        (document.getElementById('p_category') as HTMLSelectElement).value = p.category;
+        (document.getElementById('p_orderIndex') as HTMLInputElement).value = p.orderIndex ? p.orderIndex.toString() : '';
+        (document.getElementById('p_featured') as HTMLInputElement).checked = p.featured;
+        (document.getElementById('p_bestseller') as HTMLInputElement).checked = p.bestSeller;
+        (document.getElementById('p_desc') as HTMLTextAreaElement).value = p.description;
+        (document.getElementById('p_existing_image') as HTMLInputElement).value = p.imageUrl;
+        
+        const imagesList = p.imageUrls && p.imageUrls.length > 0 ? p.imageUrls : [p.imageUrl];
+        (document.getElementById('p_existing_image_urls') as HTMLInputElement).value = JSON.stringify(imagesList);
+        
+        uploadedBase64Images = [];
+        renderPreviews(imagesList);
+
+        currentSizes = p.sizes ? structuredClone(p.sizes) : [];
+        renderSizes();
+        
+        document.getElementById('modalTitle')!.innerText = 'Editar Produto';
+        modal.classList.remove('hidden');
+      });
     });
-  });
 
-  // Handle Delete
-  document.querySelectorAll('.delete-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const id = (e.currentTarget as HTMLElement).dataset.id!;
-      await store.deleteProduct(id);
-      renderDashboard(container); // re-render
+    // Handle Delete
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = (e.currentTarget as HTMLElement).dataset.id!;
+        await store.deleteProduct(id);
+        renderDashboard(container); // re-render
+      });
     });
-  });
-
-
+  }
 
   // Handle Image Preview
   fileInput.addEventListener('change', async () => {
@@ -408,6 +608,9 @@ async function renderDashboard(container: HTMLElement) {
     
     imageUrl = finalUrls[0]; // fallback
 
+    const pCreatedAtVal = (document.getElementById('p_createdAt') as HTMLInputElement).value;
+    const finalCreatedAt = pCreatedAtVal ? parseInt(pCreatedAtVal) : Date.now();
+
     const newProduct: Product = {
       id: (document.getElementById('p_id') as HTMLInputElement).value || Date.now().toString(),
       name: (document.getElementById('p_name') as HTMLInputElement).value,
@@ -422,7 +625,9 @@ async function renderDashboard(container: HTMLElement) {
       bestSeller: (document.getElementById('p_bestseller') as HTMLInputElement).checked,
       imageUrl,
       imageUrls: finalUrls,
-      createdAt: Date.now()
+      createdAt: finalCreatedAt,
+      sizes: currentSizes.length > 0 ? currentSizes : undefined,
+      orderIndex: (document.getElementById('p_orderIndex') as HTMLInputElement).value ? parseInt((document.getElementById('p_orderIndex') as HTMLInputElement).value) : undefined
     };
 
     await store.saveProduct(newProduct);

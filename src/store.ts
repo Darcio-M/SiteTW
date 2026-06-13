@@ -82,6 +82,13 @@ export async function logoutAdmin(): Promise<void> {
   await supabase.auth.signOut();
 }
 
+export interface ProductSize {
+  label: string;
+  price: number;
+  weight?: number;
+  wholesalePrice?: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -97,6 +104,8 @@ export interface Product {
   featured: boolean;
   bestSeller: boolean;
   createdAt: number;
+  sizes?: ProductSize[];
+  orderIndex?: number;
 }
 
 export interface Category {
@@ -140,6 +149,7 @@ export const defaultProducts: Product[] = [
     wholesalePrice: 220.00,
     wholesaleMinQuantity: 3,
     category: '3',
+    weight: 500,
     imageUrl: 'https://images.unsplash.com/photo-1620612396349-8e70a1e0b59b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
     imageUrls: ['https://images.unsplash.com/photo-1620612396349-8e70a1e0b59b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'],
     featured: true,
@@ -155,6 +165,7 @@ export const defaultProducts: Product[] = [
     wholesalePrice: 6.50,
     wholesaleMinQuantity: 100,
     category: '2',
+    weight: 20,
     imageUrl: 'https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
     imageUrls: ['https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'],
     featured: false,
@@ -165,14 +176,15 @@ export const defaultProducts: Product[] = [
 
 class Store {
   async getProducts(): Promise<Product[]> {
-    if (!supabase) return defaultProducts;
+    if (!supabase) return defaultProducts.sort((a, b) => (b.orderIndex || b.createdAt) - (a.orderIndex || a.createdAt));
     try {
       const { data, error } = await supabase.from('products').select('*');
       if (error) throw error;
-      return (data?.length ? data : defaultProducts) as Product[];
+      let products = (data?.length ? data : defaultProducts) as Product[];
+      return products.sort((a, b) => (b.orderIndex ?? b.createdAt) - (a.orderIndex ?? a.createdAt));
     } catch (e) {
       console.error(e);
-      return defaultProducts;
+      return defaultProducts.sort((a, b) => (b.orderIndex || b.createdAt) - (a.orderIndex || a.createdAt));
     }
   }
 
@@ -192,6 +204,13 @@ class Store {
     if (!supabase) return;
     const { error } = await supabase.from('products').upsert(product);
     if (error) throw error;
+  }
+
+  async updateProductsOrder(updates: { id: string, orderIndex: number }[]): Promise<void> {
+    if (!supabase) return;
+    await Promise.all(updates.map(update => 
+       supabase!.from('products').update({ orderIndex: update.orderIndex }).eq('id', update.id)
+    ));
   }
 
   async deleteProduct(id: string): Promise<void> {
@@ -223,33 +242,6 @@ class Store {
     const { error } = await supabase.from('categories').delete().eq('id', id);
     if (error) throw error;
   }
-
-  // --- Admins ---
-
-  async getAdmins(): Promise<Admin[]> {
-    if (!supabase) return [];
-    try {
-      const { data, error } = await supabase.from('admins').select('*');
-      if (error) throw error;
-      return (data || []) as Admin[];
-    } catch (e) {
-      console.error(e);
-      return [];
-    }
-  }
-
-  async addAdmin(email: string): Promise<void> {
-    if (!supabase) return;
-    const { error } = await supabase.from('admins').upsert({ email });
-    if (error) throw error;
-  }
-
-  async deleteAdmin(email: string): Promise<void> {
-    if (!supabase) return;
-    const { error } = await supabase.from('admins').delete().eq('email', email);
-    if (error) throw error;
-  }
-
 
 }
 

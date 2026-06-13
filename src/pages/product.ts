@@ -60,6 +60,22 @@ export async function renderProduct(container: HTMLElement, id: string) {
               <p>${product.description}</p>
             </div>
 
+            ${product.sizes && product.sizes.length > 0 ? `
+            <div class="mb-6 font-sans">
+              <label class="block text-[10px] font-bold uppercase tracking-[0.2em] text-sleek-text-light mb-2">Selecione o Tamanho/Variação</label>
+              <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                ${product.sizes.map((s, idx) => `
+                  <label class="cursor-pointer">
+                    <input type="radio" name="productSize" value="${idx}" class="peer sr-only" ${idx === 0 ? 'checked' : ''}>
+                    <div class="rounded-xl border border-sleek-border bg-white px-4 py-3 text-center hover:bg-gray-50 peer-checked:border-sleek-accent peer-checked:bg-sleek-accent/10 peer-checked:text-sleek-accent transition-colors">
+                      <span class="block text-sm font-medium">${s.label}</span>
+                    </div>
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+            ` : ''}
+
             <!-- Quantity and CEP -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
               <div>
@@ -145,15 +161,37 @@ export async function renderProduct(container: HTMLElement, id: string) {
      }
 
      let currentPrice = product.price;
+     let currentWeight = product.weight || 0;
      let labelText = '';
+     let sizeLabel = '';
+
+     const sizeRadios = document.querySelectorAll('input[name="productSize"]');
+     let selectedSizeIdx = -1;
+     sizeRadios.forEach((radio) => {
+       if ((radio as HTMLInputElement).checked) {
+         selectedSizeIdx = parseInt((radio as HTMLInputElement).value);
+       }
+     });
+
+     let baseP = product.price;
+     let wholesaleP = product.wholesalePrice || product.price;
+
+     if (product.sizes && product.sizes.length > 0 && selectedSizeIdx >= 0) {
+       const s = product.sizes[selectedSizeIdx];
+       baseP = s.price;
+       wholesaleP = s.wholesalePrice || s.price;
+       currentWeight = s.weight || currentWeight;
+       sizeLabel = s.label;
+     }
 
      if (qty < minQ) {
        labelText = 'Tratar com o vendedor:';
+       currentPrice = baseP;
      } else if (qty >= wholesaleMinQ) {
-       currentPrice = product.wholesalePrice || product.price || 0;
+       currentPrice = wholesaleP;
        labelText = 'Valor (Atacado):';
      } else {
-       currentPrice = product.price || 0;
+       currentPrice = baseP;
        labelText = 'Valor:';
      }
 
@@ -170,10 +208,11 @@ export async function renderProduct(container: HTMLElement, id: string) {
      `;
      
      const currentUrl = window.location.href;
-     const totalWeight = (product.weight || 0) * qty;
+     const totalWeight = currentWeight * qty;
      const totalWeightStr = totalWeight > 0 ? `\nPeso Total: ${totalWeight}g` : '';
+     const sizeStr = sizeLabel ? `\nTamanho/Variação: ${sizeLabel}` : '';
      
-     const message = `Olá! Tenho interesse no produto *${product.name}*.\nLink: ${currentUrl}\nQuantidade: ${qty}${totalWeightStr}\nCEP: ${cep || 'Não informado'}\nContato Cliente: ${contact || 'Não informado'}\nPor favor, gostaria de consultar o frete e fechar o pedido.`;
+     const message = `Olá! Tenho interesse no produto *${product.name}*.\nLink: ${currentUrl}\nQuantidade: ${qty}${sizeStr}${totalWeightStr}\nCEP: ${cep || 'Não informado'}\nContato Cliente: ${contact || 'Não informado'}\nPor favor, gostaria de consultar o frete e fechar o pedido.`;
      buyBtn.href = `https://api.whatsapp.com/send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
     
      buyBtn.onclick = (e) => {
@@ -190,5 +229,8 @@ export async function renderProduct(container: HTMLElement, id: string) {
   quantityInput?.addEventListener('input', updatePriceAndLink);
   cepInput?.addEventListener('input', updatePriceAndLink);
   contactInput?.addEventListener('input', updatePriceAndLink);
+  document.querySelectorAll('input[name="productSize"]').forEach(r => {
+    r.addEventListener('change', updatePriceAndLink);
+  });
   updatePriceAndLink(); 
 }

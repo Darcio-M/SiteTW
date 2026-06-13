@@ -12,13 +12,13 @@ export async function renderHome(container: HTMLElement) {
       <div class="absolute bottom-20 right-0 w-48 h-48 bg-[#E6E1F8] rounded-full blur-[60px] opacity-60"></div>
       
       <div class="relative z-10 text-center px-4 max-w-3xl mx-auto flex flex-col items-center">
-        <span class="block text-[10px] font-semibold uppercase tracking-[0.4em] text-sleek-accent mb-4 animate-fade-in font-sans">Ateliê de Luxo</span>
-        <h1 class="text-5xl md:text-7xl leading-[1.1] text-sleek-text mb-6 font-serif">
+        <span class="block text-[10px] font-semibold uppercase tracking-[0.4em] text-sleek-accent mb-4 opacity-0 animate-fade-in font-sans" style="animation-delay: 100ms; animation-fill-mode: forwards;">Ateliê de Luxo</span>
+        <h1 class="text-5xl md:text-7xl leading-[1.1] text-sleek-text mb-6 font-serif opacity-0 animate-fade-in" style="animation-delay: 200ms; animation-fill-mode: forwards;">
           Exclusividade <br/>
           <span class="italic font-normal">e Emoção</span> em <br/>
           cada detalhe.
         </h1>
-        <p class="text-sm text-sleek-text-light mb-8 max-w-sm mx-auto font-sans leading-relaxed">
+        <p class="text-sm text-sleek-text-light mb-8 max-w-sm mx-auto font-sans leading-relaxed opacity-0 animate-fade-in" style="animation-delay: 300ms; animation-fill-mode: forwards;">
           Presentes personalizados e peças exclusivas. A delicadeza do design contemporâneo unido à sofisticação dos seus melhores momentos.
         </p>
       </div>
@@ -127,7 +127,7 @@ export async function renderHome(container: HTMLElement) {
       emptyState.classList.remove('hidden');
     } else {
       emptyState.classList.add('hidden');
-      grid.innerHTML = filtered.map(p => productCardHTML(p)).join('');
+      grid.innerHTML = filtered.map((p, i) => productCardHTML(p, i)).join('');
     }
   }
 
@@ -151,11 +151,14 @@ export async function renderHome(container: HTMLElement) {
   updateGrid();
 }
 
-export function productCardHTML(product: any) {
+export function productCardHTML(product: any, index: number = 0) {
   const formattedPrice = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.price);
   
+  // Stagger animation up to 10 items
+  const delay = Math.min(index * 75, 750);
+  
   return `
-    <a href="#product/${product.id}" class="group block">
+    <a href="#product/${product.id}" class="group block opacity-0 animate-fade-in" style="animation-delay: ${delay}ms; animation-fill-mode: forwards;">
       <div class="relative overflow-hidden rounded-3xl acrylic-card soft-shadow mb-4 aspect-[4/5] p-2">
         <div class="w-full h-full bg-gradient-to-br from-[#FCE4EC] to-[#F3E5F5] rounded-2xl flex items-center justify-center overflow-hidden relative">
           <!-- RESOLUÇÃO IDEAL: 800x1000px -->
