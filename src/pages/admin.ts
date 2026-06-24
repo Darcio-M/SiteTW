@@ -697,9 +697,40 @@ async function renderDashboard(container: HTMLElement) {
     // Handle Delete
     document.querySelectorAll(".delete-btn").forEach((btn) => {
       btn.addEventListener("click", async (e) => {
-        const id = (e.currentTarget as HTMLElement).dataset.id!;
-        await store.deleteProduct(id);
-        renderDashboard(container); // re-render
+        const targetBtn = e.currentTarget as HTMLButtonElement;
+        
+        // Em um iframe, window.confirm pode não funcionar, 
+        // então substituímos por uma dupla verificação de estado.
+        if (targetBtn.dataset.confirm === "true") {
+          const originalText = targetBtn.innerText;
+          targetBtn.innerText = "Excluindo...";
+          targetBtn.disabled = true;
+          const id = targetBtn.dataset.id!;
+          try {
+            await store.deleteProduct(id);
+            renderDashboard(container); // re-render
+          } catch (err: any) {
+            console.error("Erro ao excluir produto:", err);
+            targetBtn.innerText = "Erro ao Excluir!";
+            setTimeout(() => {
+              targetBtn.innerText = originalText;
+              targetBtn.dataset.confirm = "false";
+              targetBtn.disabled = false;
+            }, 3000);
+          }
+        } else {
+          const originalText = targetBtn.innerText;
+          targetBtn.innerText = "Confirmar?";
+          targetBtn.dataset.confirm = "true";
+          
+          // Revert after 3 seconds if not confirmed
+          setTimeout(() => {
+            if (targetBtn.dataset.confirm === "true") {
+              targetBtn.innerText = originalText;
+              targetBtn.dataset.confirm = "false";
+            }
+          }, 3000);
+        }
       });
     });
   }
@@ -742,6 +773,7 @@ async function renderDashboard(container: HTMLElement) {
       let finalUrls: string[] = [];
 
       if (uploadedBase64Images.length > 0) {
+        // Upload new images
         for (const base64 of uploadedBase64Images) {
           try {
             // Upload only if it's base64 data
@@ -755,6 +787,24 @@ async function renderDashboard(container: HTMLElement) {
             console.error("Erro ao subir imagem", err);
             alert("Falha no upload da imagem para o Supabase Storage. Verifique se o bucket 'product-images' existe e é Público.");
             throw err;
+          }
+        }
+        
+        // Remove old images from Storage if replacing
+        for (const oldUrl of existingImageUrls) {
+          if (oldUrl && oldUrl.includes('supabase.co/storage/v1/object/public/product-images/')) {
+            const splitStr = 'supabase.co/storage/v1/object/public/product-images/';
+            const parts = oldUrl.split(splitStr);
+            if (parts.length > 1) {
+              let fileName = parts[1];
+              fileName = fileName.split('?')[0];
+              fileName = decodeURIComponent(fileName);
+              try {
+                await store.deleteProductImage(fileName);
+              } catch (e) {
+                console.error("Failed to delete old image:", oldUrl, e);
+              }
+            }
           }
         }
       } else {

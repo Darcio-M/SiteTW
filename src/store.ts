@@ -236,6 +236,15 @@ class Store {
     return publicUrlData.publicUrl;
   }
 
+  async deleteProductImage(fileName: string): Promise<void> {
+    if (!supabase) return;
+    const { error } = await supabase.storage.from('product-images').remove([fileName]);
+    if (error) {
+      console.error("Erro ao remover imagem:", error);
+      throw error;
+    }
+  }
+
   async saveProduct(product: Product): Promise<void> {
     if (!supabase) return;
     const { error } = await supabase.from("products").upsert(product);
@@ -258,8 +267,45 @@ class Store {
 
   async deleteProduct(id: string): Promise<void> {
     if (!supabase) return;
-    const { error } = await supabase.from("products").delete().eq("id", id);
-    if (error) throw error;
+    
+    try {
+      const product = await this.getProduct(id);
+      if (product) {
+        const urls = product.imageUrls && product.imageUrls.length > 0 ? product.imageUrls : [product.imageUrl];
+        for (const url of urls) {
+          if (url && url.includes('supabase.co/storage/v1/object/public/product-images/')) {
+            const splitStr = 'supabase.co/storage/v1/object/public/product-images/';
+            const parts = url.split(splitStr);
+            if (parts.length > 1) {
+              let fileName = parts[1]; // Get everything after the bucket name
+              fileName = fileName.split('?')[0]; // remove query string
+              fileName = decodeURIComponent(fileName); // decode URL encoding
+              console.log("Attempting to delete image from storage:", fileName);
+              const { error: removeError } = await supabase.storage.from('product-images').remove([fileName]);
+              if (removeError) {
+                console.error("Failed to delete image from storage:", fileName, removeError);
+              } else {
+                console.log("Successfully deleted image from storage:", fileName);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao remover imagens do storage:", err);
+      // Proceed with deleting the product even if image removal fails
+    }
+
+    const { data, error } = await supabase.from("products").delete().eq("id", id).select();
+    if (error) {
+      console.error("Supabase delete error:", error);
+      throw new Error(error.message);
+    }
+    if (!data || data.length === 0) {
+      console.warn("Nenhum produto foi excluído do banco de dados. Pode ser um problema de permissão (RLS).");
+      throw new Error("Permissão negada ou produto não encontrado. Verifique se você está logado como administrador autorizado.");
+    }
+    console.log("Delete product result:", data);
   }
 
   async clearProducts(): Promise<void> {
