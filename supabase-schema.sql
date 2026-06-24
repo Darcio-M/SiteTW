@@ -75,3 +75,13 @@ create policy "Public can insert orders" on public.orders for insert with check 
 create policy "Admins can view orders" on public.orders for select using (auth.email() = 'darciodfx@gmail.com' or exists (select 1 from public.admins where email = auth.email()));
 create policy "Admins can update orders" on public.orders for update using (auth.email() = 'darciodfx@gmail.com' or exists (select 1 from public.admins where email = auth.email()));
 
+-- Storage Bucket Policies
+insert into storage.buckets (id, name, public) 
+values ('product-images', 'product-images', true)
+on conflict (id) do nothing;
+
+create policy "Public can view images" on storage.objects for select using (bucket_id = 'product-images');
+create policy "Admins can insert images" on storage.objects for insert with check (bucket_id = 'product-images' and (auth.email() = 'darciodfx@gmail.com' or exists (select 1 from public.admins where email = auth.email())));
+create policy "Admins can update images" on storage.objects for update using (bucket_id = 'product-images' and (auth.email() = 'darciodfx@gmail.com' or exists (select 1 from public.admins where email = auth.email())));
+create policy "Admins can delete images" on storage.objects for delete using (bucket_id = 'product-images' and (auth.email() = 'darciodfx@gmail.com' or exists (select 1 from public.admins where email = auth.email())));
+

@@ -23,7 +23,7 @@ export function initApp() {
             </nav>
 
             <div class="flex items-center space-x-6">
-              <a href="https://api.whatsapp.com/send?phone=5588992544294" target="_blank" rel="noopener noreferrer" class="hidden md:flex items-center gap-2 border border-sleek-border hover:border-green-500 hover:text-green-600 px-4 py-2 rounded-full text-[10px] uppercase tracking-widest font-bold transition-colors">
+              <a href="https://api.whatsapp.com/send?phone=558892544294" target="_blank" rel="noopener noreferrer" class="hidden md:flex items-center gap-2 border border-sleek-border hover:border-green-500 hover:text-green-600 px-4 py-2 rounded-full text-[10px] uppercase tracking-widest font-bold transition-colors">
                 <i data-lucide="message-circle" class="w-4 h-4"></i> Fale Conosco
               </a>
               <button id="mobile-menu-btn" class="md:hidden opacity-60 hover:opacity-100"><i data-lucide="menu" class="w-6 h-6"></i></button>
@@ -36,7 +36,7 @@ export function initApp() {
           <div class="px-4 pt-2 pb-6 space-y-2">
             <a href="#home" class="mobile-link block px-3 py-3 text-sm uppercase tracking-[0.2em] font-medium hover:text-sleek-accent hover:bg-sleek-surface rounded-md transition-colors">Início</a>
             <a href="#shop" class="mobile-link block px-3 py-3 text-sm uppercase tracking-[0.2em] font-medium hover:text-sleek-accent hover:bg-sleek-surface rounded-md transition-colors">Catálogo</a>
-            <a href="https://api.whatsapp.com/send?phone=5588992544294" target="_blank" rel="noopener noreferrer" class="mobile-link flex items-center gap-2 px-3 py-3 text-sm uppercase tracking-[0.2em] font-medium text-green-600 hover:bg-green-50 rounded-md transition-colors"><i data-lucide="message-circle" class="w-4 h-4"></i> Fale Conosco</a>
+            <a href="https://api.whatsapp.com/send?phone=558892544294" target="_blank" rel="noopener noreferrer" class="mobile-link flex items-center gap-2 px-3 py-3 text-sm uppercase tracking-[0.2em] font-medium text-green-600 hover:bg-green-50 rounded-md transition-colors"><i data-lucide="message-circle" class="w-4 h-4"></i> Fale Conosco</a>
           </div>
         </div>
       </header>
@@ -69,7 +69,7 @@ export function initApp() {
           <div>
             <h4 class="text-[10px] uppercase tracking-[0.2em] font-bold text-sleek-text mb-6">Contato</h4>
             <ul class="space-y-4 text-sm font-light text-sleek-text-light">
-              <li>(88) 9 9242-9454</li>
+              <li>(88) 9 9254-4294</li>
               <li>Atendimento Seg-Sab, 9h às 18h</li>
               <li><a href="#admin" class="hover:text-sleek-accent transition-colors">Administração</a></li>
             </ul>
