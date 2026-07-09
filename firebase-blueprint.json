@@ -1,0 +1,79 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Represents a product in the catalog",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "minQuantity": { "type": "number" },
+        "wholesalePrice": { "type": "number" },
+        "wholesaleMinQuantity": { "type": "number" },
+        "category": { "type": "string" },
+        "weight": { "type": "number" },
+        "imageUrl": { "type": "string" },
+        "imageUrls": { "type": "array" },
+        "featured": { "type": "boolean" },
+        "bestSeller": { "type": "boolean" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["name", "description", "price", "category", "createdAt"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Represents a product category",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Authorized administrators",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" }
+      },
+      "required": ["email"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Represents a customer order",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string" },
+        "productName": { "type": "string" },
+        "quantity": { "type": "number" },
+        "cep": { "type": "string" },
+        "contact": { "type": "string" },
+        "totalWeight": { "type": "number" },
+        "totalValue": { "type": "number" },
+        "status": { "type": "string" },
+        "shippingCost": { "type": "number" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["productId", "productName", "quantity", "cep", "contact", "totalValue", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Stores the catalog products"
+    },
+    "categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/Category" },
+      "description": "Stores the product categories"
+    },
+    "admins/{adminId}": {
+      "schema": { "$ref": "#/entities/Admin" },
+      "description": "Stores users authorized to access admin panel"
+    },
+    "orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Stores customer orders"
+    }
+  }
+}
